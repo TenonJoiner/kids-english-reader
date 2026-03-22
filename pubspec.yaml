@@ -1,0 +1,56 @@
+name: kids_english_reader
+description: A simple English picture book reading app for kids
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # 相机
+  camera: ^0.10.5+9
+  
+  # OCR - Google ML Kit
+  google_mlkit_text_recognition: ^0.13.0
+  
+  # 语音合成 TTS
+  flutter_tts: ^3.8.5
+  
+  # 语音识别
+  speech_to_text: ^6.6.0
+  
+  # 本地存储
+  shared_preferences: ^2.2.2
+  
+  # 图片选择
+  image_picker: ^1.0.7
+  
+  # 权限管理
+  permission_handler: ^11.3.0
+  
+  # 动画
+  lottie: ^3.0.0
+  
+  # 音频播放
+  audioplayers: ^5.2.1
+  
+  # 路径
+  path_provider: ^2.1.2
+  path: ^1.8.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/images/
+    - assets/audio/
