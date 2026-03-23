@@ -16,6 +16,14 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
+    - name: Get version from pubspec.yaml
+      id: get_version
+      run: |
+        VERSION=$(grep "^version:" pubspec.yaml | sed 's/version: //g' | sed 's/+.*//g' | tr -d ' ')
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "App Version: $VERSION"
+    
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
@@ -66,15 +74,15 @@ jobs:
       uses: ncipollo/release-action@v1
       with:
         artifacts: "build/app/outputs/flutter-apk/app-release.apk"
-        tag: v${{ github.run_number }}
-        name: Release v${{ github.run_number }}
+        tag: v${{ env.VERSION }}
+        name: Release v${{ env.VERSION }}
         body: |
-          儿童英语绘本阅读App
+          儿童英语绘本阅读App v${{ env.VERSION }}
           
           ## 安装说明
           1. 下载 `app-release.apk`
           2. 在Android手机上安装
-          3. 首次打开时配置阿里云API密钥
+          3. 首次打开时配置百炼API Key
         token: ${{ secrets.GITHUB_TOKEN }}
         allowUpdates: true
         replacesArtifacts: true
