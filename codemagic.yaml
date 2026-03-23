@@ -8,6 +8,10 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
+      # 环境变量将在Codemagic控制台配置
+      # ALIBABA_ACCESS_KEY_ID
+      # ALIBABA_ACCESS_KEY_SECRET
+      # ALIBABA_APP_KEY
     cache:
       cache_paths:
         - $FLUTTER_ROOT/.pub-cache
@@ -15,12 +19,18 @@ workflows:
     triggering:
       events:
         - push
-        - pull_request
       branch_patterns:
-        - pattern: main
+        - pattern: master
           include: true
           source: true
     scripts:
+      - name: Create .env file
+        script: |
+          echo "ALIBABA_ACCESS_KEY_ID=$ALIBABA_ACCESS_KEY_ID" > .env
+          echo "ALIBABA_ACCESS_KEY_SECRET=$ALIBABA_ACCESS_KEY_SECRET" >> .env
+          echo "ALIBABA_APP_KEY=$ALIBABA_APP_KEY" >> .env
+          echo ".env文件已创建"
+      
       - name: Get Flutter packages
         script: flutter packages pub get
       
