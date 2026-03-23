@@ -30,12 +30,21 @@ dependencies:
   # 权限管理
   permission_handler: ^10.4.5
   
-  # 动画 - 降级以兼容Dart 3.0
+  # 动画
   lottie: ^2.6.0
   
   # 路径
   path_provider: ^2.1.2
   path: ^1.8.3
+  
+  # 录音
+  record: ^5.0.4
+  
+  # 音频播放
+  audioplayers: ^5.2.1
+  
+  # 音频处理
+  flutter_sound: ^9.2.13
 
 dev_dependencies:
   flutter_test:
