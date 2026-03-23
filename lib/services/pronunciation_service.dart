@@ -28,7 +28,7 @@ class PronunciationService {
       }
     }
     
-    final score = (matchedWords / expectedWords.length * 100).clamp(0, 100);
+    final score = (matchedWords / expectedWords.length * 100).clamp(0, 100).toDouble();
     return score;
   }
 
