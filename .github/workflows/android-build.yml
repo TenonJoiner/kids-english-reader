@@ -4,6 +4,15 @@ on:
   push:
     branches: [ master, main ]
   workflow_dispatch:
+    inputs:
+      create_release:
+        description: '创建Release'
+        required: true
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
 
 permissions:
   contents: write
@@ -71,6 +80,7 @@ jobs:
         path: build/app/outputs/flutter-apk/app-release.apk
     
     - name: Create Release
+      if: github.event.inputs.create_release == 'true'
       uses: ncipollo/release-action@v1
       with:
         artifacts: "build/app/outputs/flutter-apk/app-release.apk"
