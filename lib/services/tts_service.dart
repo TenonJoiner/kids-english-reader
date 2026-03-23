@@ -3,6 +3,48 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:crypto/crypto.dart';
 import 'package:path_provider/path_provider.dart';
+import 'settings_service.dart';
+
+/// TTS服务 - 使用阿里云语音合成
+class TTSService {
+  AliyunTTSService? _aliyunService;
+  final SettingsService _settingsService = SettingsService();
+
+  /// 初始化TTS服务
+  Future<void> init() async {
+    await _settingsService.init();
+    
+    if (_settingsService.isConfigured) {
+      _aliyunService = AliyunTTSService(
+        accessKeyId: _settingsService.accessKeyId!,
+        accessKeySecret: _settingsService.accessKeySecret!,
+        appKey: _settingsService.appKey!,
+      );
+    }
+  }
+
+  /// 朗读文本
+  Future<void> speak(String text) async {
+    if (_aliyunService == null) {
+      print('TTS未配置');
+      return;
+    }
+
+    try {
+      final audioPath = await _aliyunService!.synthesize(text);
+      if (audioPath != null) {
+        // 播放音频（需要audioplayers插件）
+        // 简化实现，实际应该使用AudioPlayer播放
+        print('TTS音频已生成: $audioPath');
+      }
+    } catch (e) {
+      print('TTS播放失败: $e');
+    }
+  }
+
+  /// 检查是否已配置
+  bool get isConfigured => _aliyunService != null;
+}
 
 /// 阿里云TTS服务
 class AliyunTTSService {

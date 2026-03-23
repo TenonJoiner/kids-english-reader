@@ -4,6 +4,47 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:crypto/crypto.dart';
 import 'package:path_provider/path_provider.dart';
+import 'settings_service.dart';
+
+/// 语音识别服务 - 使用阿里云语音识别
+class SpeechService {
+  AliyunSpeechService? _aliyunService;
+  final SettingsService _settingsService = SettingsService();
+
+  /// 初始化语音识别服务
+  Future<void> init() async {
+    await _settingsService.init();
+    
+    if (_settingsService.isConfigured) {
+      _aliyunService = AliyunSpeechService(
+        accessKeyId: _settingsService.accessKeyId!,
+        accessKeySecret: _settingsService.accessKeySecret!,
+        appKey: _settingsService.appKey!,
+      );
+    }
+  }
+
+  /// 开始录音并识别
+  Future<String> listen() async {
+    if (_aliyunService == null) {
+      print('语音识别未配置');
+      return '';
+    }
+
+    try {
+      return await _aliyunService!.listen();
+    } catch (e) {
+      print('语音识别失败: $e');
+      return '';
+    }
+  }
+
+  /// 检查是否正在录音
+  bool get isListening => _aliyunService?.isListening ?? false;
+
+  /// 检查是否已配置
+  bool get isConfigured => _aliyunService != null;
+}
 
 /// 阿里云语音识别服务
 class AliyunSpeechService {
@@ -89,11 +130,6 @@ class AliyunSpeechService {
     return base64Encode(digest.bytes);
   }
 
-  /// 初始化
-  Future<void> init() async {
-    await _getToken();
-  }
-
   /// 开始录音并识别（简化版）
   Future<String> listen() async {
     _isListening = true;
@@ -107,34 +143,6 @@ class AliyunSpeechService {
     } catch (e) {
       _isListening = false;
       print('语音识别错误: $e');
-      return '';
-    }
-  }
-
-  /// 识别音频文件
-  Future<String> recognizeAudioFile(String audioPath) async {
-    try {
-      final token = await _getToken();
-      final audioBytes = await File(audioPath).readAsBytes();
-      final base64Audio = base64Encode(audioBytes);
-
-      // 构建识别请求
-      final request = {
-        'appkey': _appKey,
-        'token': token,
-        'format': 'pcm',
-        'sample_rate': 16000,
-        'enable_intermediate_result': false,
-        'enable_punctuation_prediction': true,
-        'enable_inverse_text_normalization': true,
-      };
-
-      // WebSocket连接进行实时识别
-      // 简化实现，实际需要WebSocket连接
-      
-      return '';
-    } catch (e) {
-      print('ASR Error: $e');
       return '';
     }
   }

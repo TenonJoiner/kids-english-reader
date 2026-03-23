@@ -2,6 +2,44 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:crypto/crypto.dart';
+import 'package:path_provider/path_provider.dart';
+import 'settings_service.dart';
+
+/// OCR服务 - 使用阿里云文字识别
+class OCRService {
+  AliyunOCRService? _aliyunService;
+  final SettingsService _settingsService = SettingsService();
+
+  /// 初始化OCR服务
+  Future<void> init() async {
+    await _settingsService.init();
+    
+    if (_settingsService.isConfigured) {
+      _aliyunService = AliyunOCRService(
+        accessKeyId: _settingsService.accessKeyId!,
+        accessKeySecret: _settingsService.accessKeySecret!,
+      );
+    }
+  }
+
+  /// 识别图片文字
+  Future<String> recognizeText(String imagePath) async {
+    if (_aliyunService == null) {
+      print('OCR未配置');
+      return '';
+    }
+
+    try {
+      return await _aliyunService!.recognizeText(imagePath);
+    } catch (e) {
+      print('OCR识别失败: $e');
+      return '';
+    }
+  }
+
+  /// 检查是否已配置
+  bool get isConfigured => _aliyunService != null;
+}
 
 /// 阿里云OCR服务
 class AliyunOCRService {

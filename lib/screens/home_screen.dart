@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../services/settings_service.dart';
 import '../services/tts_service.dart';
 import 'camera_screen.dart';
 import 'parent_screen.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -13,17 +15,20 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final TTSService _ttsService = TTSService();
+  final SettingsService _settingsService = SettingsService();
   int _booksRead = 3;
   int _stars = 15;
 
   @override
   void initState() {
     super.initState();
-    _initTTS();
+    _init();
   }
 
-  Future<void> _initTTS() async {
+  Future<void> _init() async {
+    await _settingsService.init();
     await _ttsService.init();
+    
     // 欢迎语音
     Future.delayed(const Duration(seconds: 1), () {
       _ttsService.speak('来，我们一起读绘本吧！点击大按钮开始');
@@ -31,6 +36,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _startReading() {
+    if (!_settingsService.isConfigured) {
+      // 未配置，跳转到设置
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const SettingsScreen(isFirstSetup: true),
+        ),
+      );
+      return;
+    }
+    
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const CameraScreen()),
@@ -39,7 +55,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _enterParentMode() {
     HapticFeedback.mediumImpact();
-    // 长按3秒进入家长模式
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -65,10 +80,28 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _openSettings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const SettingsScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFF8E7),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings, color: Color(0xFF5D4037)),
+            onPressed: _openSettings,
+            tooltip: '设置',
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

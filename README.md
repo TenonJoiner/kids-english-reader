@@ -11,6 +11,7 @@
 - 🎤 语音识别和评估
 - ⭐ 游戏化奖励系统
 - 👨‍👩‍👧‍👦 家长模式
+- ⚙️ App内配置阿里云密钥
 
 ## 三步教学法
 
@@ -22,94 +23,34 @@
 
 - Flutter 3.0+
 - 阿里云AI（OCR + TTS + 语音识别）
-- 一个账号，三个服务
+- SharedPreferences（本地存储密钥）
 
 ## 快速开始
 
-### 1. 配置阿里云
+### 1. 安装App
 
-1. 访问 https://www.aliyun.com
-2. 注册/登录 → 实名认证
+从 [Releases](https://github.com/TenonJoiner/kids-english-reader/releases) 下载最新APK并安装。
+
+### 2. 配置阿里云密钥
+
+**首次打开App时**，需要配置阿里云API密钥：
+
+1. 访问 https://ai.aliyun.com
+2. 注册/登录阿里云账号
 3. 开通以下服务：
    - **文字识别**（OCR）
    - **语音合成**（TTS）
    - **语音识别**
-4. 创建AccessKey（右上角头像 → AccessKey管理）
-5. 获取AppKey（在各服务控制台创建应用）
+4. 获取密钥：
+   - AccessKey ID / Secret（右上角 → AccessKey管理）
+   - AppKey（语音合成/识别控制台 → 创建应用）
+5. 在App设置页面填入密钥
 
-### 2. 配置环境变量
+### 3. 开始使用
 
-复制 `.env.example` 为 `.env`：
-
-```bash
-cp .env.example .env
-```
-
-编辑 `.env` 文件：
-
-```
-ALIBABA_ACCESS_KEY_ID=你的AccessKeyID
-ALIBABA_ACCESS_KEY_SECRET=你的AccessKeySecret
-ALIBABA_APP_KEY=你的AppKey
-```
-
-### 3. 本地运行
-
-```bash
-# 安装依赖
-flutter pub get
-
-# 运行App
-flutter run
-```
-
-### 4. 构建发布
-
-```bash
-# Android APK
-flutter build apk --release
-
-# Android App Bundle
-flutter build appbundle --release
-```
-
-## 在线构建（推荐）
-
-### Codemagic（免费）
-
-1. 访问 https://codemagic.io
-2. 使用GitHub账号登录
-3. 导入本项目
-4. 在 Environment Variables 中添加：
-   - `ALIBABA_ACCESS_KEY_ID`
-   - `ALIBABA_ACCESS_KEY_SECRET`
-   - `ALIBABA_APP_KEY`
-5. 点击 "Start new build"
-
-构建完成后，APK会自动发送到你的邮箱。
-
-## 项目结构
-
-```
-lib/
-├── main.dart              # 入口文件
-├── screens/               # 页面
-│   ├── home_screen.dart   # 首页
-│   ├── camera_screen.dart # 相机/相册选择
-│   ├── learning_screen.dart # 学习页面
-│   └── parent_screen.dart # 家长模式
-└── services/              # 服务
-    ├── ocr_service.dart   # 阿里云OCR
-    ├── tts_service.dart   # 阿里云TTS
-    └── speech_service.dart # 阿里云语音识别
-```
-
-## 注意事项
-
-1. **API Key安全**：不要把 `.env` 文件提交到GitHub
-2. **首次运行**：需要授权相机和麦克风权限
-3. **网络要求**：需要联网使用阿里云服务
-4. **华为手机**：已适配国内阿里云服务
+- 点击大按钮拍照
+- OCR识别绘本文字
+- 按"听-说-读"三步学习
 
 ## 阿里云费用
 
@@ -120,6 +61,55 @@ lib/
 | 语音识别 | 2小时/月 | 1.6元/小时 |
 
 个人使用完全免费。
+
+## 自行构建
+
+```bash
+# 克隆项目
+git clone https://github.com/TenonJoiner/kids-english-reader.git
+cd kids-english-reader
+
+# 安装依赖
+flutter pub get
+
+# 运行
+flutter run
+
+# 构建APK
+flutter build apk --release
+```
+
+## 项目结构
+
+```
+lib/
+├── main.dart              # 入口文件
+├── screens/               # 页面
+│   ├── splash_screen.dart # 启动页（检查配置）
+│   ├── home_screen.dart   # 首页
+│   ├── camera_screen.dart # 相机/相册选择
+│   ├── learning_screen.dart # 学习页面
+│   ├── parent_screen.dart # 家长模式
+│   └── settings_screen.dart # 设置页面（配置密钥）
+└── services/              # 服务
+    ├── settings_service.dart   # 本地设置管理
+    ├── ocr_service.dart        # 阿里云OCR
+    ├── tts_service.dart        # 阿里云TTS
+    └── speech_service.dart     # 阿里云语音识别
+```
+
+## 隐私说明
+
+- 阿里云密钥仅保存在手机本地（SharedPreferences）
+- 不会上传到任何服务器
+- 拍照的绘本图片仅用于OCR识别，不会保存
+
+## 注意事项
+
+1. **首次使用必须配置密钥**，否则无法使用核心功能
+2. **需要联网**，所有AI服务都在云端运行
+3. **授予权限**：相机（拍照）、麦克风（语音识别）
+4. **华为手机**：已适配国内阿里云服务
 
 ## 后续优化方向
 

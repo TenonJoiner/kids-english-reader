@@ -31,13 +31,6 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-flutter-
     
-    - name: Create .env file
-      run: |
-        echo "ALIBABA_ACCESS_KEY_ID=${{ secrets.ALIBABA_ACCESS_KEY_ID }}" > .env
-        echo "ALIBABA_ACCESS_KEY_SECRET=${{ secrets.ALIBABA_ACCESS_KEY_SECRET }}" >> .env
-        echo "ALIBABA_APP_KEY=${{ secrets.ALIBABA_APP_KEY }}" >> .env
-        echo ".env文件已创建"
-    
     - name: Get dependencies
       run: flutter pub get
     
@@ -67,16 +60,24 @@ jobs:
         tag: v${{ github.run_number }}
         name: Release v${{ github.run_number }}
         body: |
-          自动构建的APK和AppBundle
+          儿童英语绘本阅读App
           
           ## 安装说明
           1. 下载 `app-release.apk`
           2. 在Android手机上安装
-          3. 授予相机和麦克风权限
+          3. 首次打开时配置阿里云API密钥
+          4. 授予相机和麦克风权限
+          
+          ## 配置说明
+          首次使用需要在App内配置阿里云密钥：
+          1. 访问 https://ai.aliyun.com 注册账号
+          2. 开通语音合成、语音识别、文字识别服务
+          3. 在控制台获取AccessKey和AppKey
+          4. 在App设置页面填入密钥
           
           ## 注意事项
           - 需要联网使用阿里云服务
-          - 首次使用需要配置阿里云API Key
+          - 密钥仅保存在本地，不会上传
         token: ${{ secrets.GITHUB_TOKEN }}
         allowUpdates: true
         replacesArtifacts: true
