@@ -15,8 +15,32 @@ jobs:
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.10.6'
+        flutter-version: '3.16.0'
         channel: 'stable'
+    
+    - name: Recreate Android project
+      run: |
+        # 备份lib和assets
+        mv lib lib_backup
+        mv assets assets_backup 2>/dev/null || true
+        mv pubspec.yaml pubspec_backup.yaml
+        
+        # 删除所有文件
+        rm -rf *
+        
+        # 创建新项目
+        flutter create --org com.example --project-name kids_english_reader .
+        
+        # 恢复代码
+        rm -rf lib
+        mv lib_backup lib
+        mv assets_backup assets 2>/dev/null || true
+        
+        # 恢复pubspec.yaml（保留依赖）
+        cat pubspec_backup.yaml > pubspec.yaml
+        
+        # 确保Android配置正确
+        echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m" >> android/gradle.properties
     
     - name: Get dependencies
       run: flutter pub get
