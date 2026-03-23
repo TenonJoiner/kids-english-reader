@@ -18,6 +18,9 @@ jobs:
         flutter-version: '3.16.0'
         channel: 'stable'
     
+    - name: Disable Flutter analytics
+      run: flutter config --no-analytics
+    
     - name: Recreate Android project
       run: |
         # 备份lib和assets
@@ -25,21 +28,21 @@ jobs:
         mv assets assets_backup 2>/dev/null || true
         mv pubspec.yaml pubspec_backup.yaml
         
-        # 删除所有文件
-        rm -rf *
+        # 删除所有文件（除了.git）
+        find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
         
-        # 创建新项目
-        flutter create --org com.example --project-name kids_english_reader .
+        # 创建新项目（非交互式）
+        flutter create --no-pub --org com.example --project-name kids_english_reader .
         
         # 恢复代码
         rm -rf lib
         mv lib_backup lib
         mv assets_backup assets 2>/dev/null || true
         
-        # 恢复pubspec.yaml（保留依赖）
+        # 恢复pubspec.yaml
         cat pubspec_backup.yaml > pubspec.yaml
         
-        # 确保Android配置正确
+        # 添加Android配置
         echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m" >> android/gradle.properties
     
     - name: Get dependencies
