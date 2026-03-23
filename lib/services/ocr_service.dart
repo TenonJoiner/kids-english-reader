@@ -1,114 +1,50 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
-import 'package:crypto/crypto.dart';
-import 'package:path_provider/path_provider.dart';
 import 'settings_service.dart';
 
-/// OCR服务 - 使用阿里云文字识别
+/// OCR服务 - 使用阿里云百炼MAAS
 class OCRService {
-  AliyunOCRService? _aliyunService;
+  static const String _endpoint = 'https://dashscope.aliyuncs.com/api/v1/services/vision/ocr/general';
+  
   final SettingsService _settingsService = SettingsService();
 
   /// 初始化OCR服务
   Future<void> init() async {
     await _settingsService.init();
-    
-    if (_settingsService.isConfigured) {
-      _aliyunService = AliyunOCRService(
-        accessKeyId: _settingsService.accessKeyId!,
-        accessKeySecret: _settingsService.accessKeySecret!,
-      );
-    }
   }
 
   /// 识别图片文字
   Future<String> recognizeText(String imagePath) async {
-    if (_aliyunService == null) {
+    if (!_settingsService.isConfigured) {
       print('OCR未配置');
       return '';
     }
 
     try {
-      return await _aliyunService!.recognizeText(imagePath);
-    } catch (e) {
-      print('OCR识别失败: $e');
-      return '';
-    }
-  }
-
-  /// 检查是否已配置
-  bool get isConfigured => _aliyunService != null;
-}
-
-/// 阿里云OCR服务
-class AliyunOCRService {
-  static const String _endpoint = 'ocr.aliyuncs.com';
-  
-  final String _accessKeyId;
-  final String _accessKeySecret;
-
-  AliyunOCRService({
-    required String accessKeyId,
-    required String accessKeySecret,
-  })  : _accessKeyId = accessKeyId,
-        _accessKeySecret = accessKeySecret;
-
-  /// 生成签名
-  String _generateSignature(String stringToSign) {
-    final key = utf8.encode(_accessKeySecret);
-    final bytes = utf8.encode(stringToSign);
-    final hmac = Hmac(sha1, key);
-    final digest = hmac.convert(bytes);
-    return base64Encode(digest.bytes);
-  }
-
-  /// 识别图片文字
-  Future<String> recognizeText(String imagePath) async {
-    try {
+      final apiKey = _settingsService.apiKey;
       final imageBytes = await File(imagePath).readAsBytes();
       final base64Image = base64Encode(imageBytes);
 
-      // 构建请求参数
-      final params = {
-        'Action': 'RecognizeGeneral',
-        'Version': '2021-07-07',
-        'Format': 'JSON',
-        'AccessKeyId': _accessKeyId,
-        'SignatureMethod': 'HMAC-SHA1',
-        'Timestamp': _getTimestamp(),
-        'SignatureVersion': '1.0',
-        'SignatureNonce': DateTime.now().millisecondsSinceEpoch.toString(),
-        'ImageURL': '', // 使用Base64图片
-        'ImageBase64': base64Image,
-      };
-
-      // 计算签名
-      final sortedParams = Map.fromEntries(
-        params.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
-      );
-      
-      final canonicalQueryString = sortedParams.entries
-          .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
-          .join('&');
-      
-      final stringToSign = 'POST&${Uri.encodeComponent('/')}&${Uri.encodeComponent(canonicalQueryString)}';
-      final signature = _generateSignature(stringToSign);
-
-      // 发送请求
       final response = await http.post(
-        Uri.parse('https://$_endpoint/?Signature=$signature'),
+        Uri.parse(_endpoint),
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': 'Bearer $apiKey',
+          'Content-Type': 'application/json',
         },
-        body: canonicalQueryString,
+        body: jsonEncode({
+          'model': 'qwen-vl-ocr',
+          'input': {
+            'image': base64Image,
+          },
+        }),
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final content = data['Content'] as String?;
-        if (content != null && content.isNotEmpty) {
-          return content.length > 100 ? content.substring(0, 100) : content;
+        final text = data['output']?['text'] as String?;
+        if (text != null && text.isNotEmpty) {
+          return text.length > 100 ? text.substring(0, 100) : text;
         }
         return '';
       } else {
@@ -121,8 +57,6 @@ class AliyunOCRService {
     }
   }
 
-  String _getTimestamp() {
-    final now = DateTime.now().toUtc();
-    return now.toIso8601String().replaceAll(RegExp(r'\.\d+'), '');
-  }
+  /// 检查是否已配置
+  bool get isConfigured => _settingsService.isConfigured;
 }

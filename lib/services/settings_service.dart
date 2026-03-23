@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// 设置服务 - 管理用户配置的阿里云密钥
+/// 设置服务 - 管理用户配置的百炼API Key
 class SettingsService {
-  static const String _keyAccessKeyId = 'alibaba_access_key_id';
-  static const String _keyAccessKeySecret = 'alibaba_access_key_secret';
-  static const String _keyAppKey = 'alibaba_app_key';
+  static const String _keyApiKey = 'bailian_api_key';
   static const String _keyIsFirstRun = 'is_first_run';
 
   static final SettingsService _instance = SettingsService._internal();
@@ -26,45 +25,23 @@ class SettingsService {
     await _prefs?.setBool(_keyIsFirstRun, false);
   }
 
-  /// 获取AccessKey ID
-  String? get accessKeyId => _prefs?.getString(_keyAccessKeyId);
+  /// 获取API Key
+  String? get apiKey => _prefs?.getString(_keyApiKey);
 
-  /// 设置AccessKey ID
-  Future<void> setAccessKeyId(String value) async {
-    await _prefs?.setString(_keyAccessKeyId, value);
-  }
-
-  /// 获取AccessKey Secret
-  String? get accessKeySecret => _prefs?.getString(_keyAccessKeySecret);
-
-  /// 设置AccessKey Secret
-  Future<void> setAccessKeySecret(String value) async {
-    await _prefs?.setString(_keyAccessKeySecret, value);
-  }
-
-  /// 获取AppKey
-  String? get appKey => _prefs?.getString(_keyAppKey);
-
-  /// 设置AppKey
-  Future<void> setAppKey(String value) async {
-    await _prefs?.setString(_keyAppKey, value);
+  /// 设置API Key
+  Future<void> setApiKey(String value) async {
+    await _prefs?.setString(_keyApiKey, value);
   }
 
   /// 检查是否已配置
   bool get isConfigured {
-    return accessKeyId != null && 
-           accessKeyId!.isNotEmpty &&
-           accessKeySecret != null && 
-           accessKeySecret!.isNotEmpty &&
-           appKey != null && 
-           appKey!.isNotEmpty;
+    final key = apiKey;
+    return key != null && key.isNotEmpty;
   }
 
   /// 清除所有设置
   Future<void> clear() async {
-    await _prefs?.remove(_keyAccessKeyId);
-    await _prefs?.remove(_keyAccessKeySecret);
-    await _prefs?.remove(_keyAppKey);
+    await _prefs?.remove(_keyApiKey);
     await _prefs?.remove(_keyIsFirstRun);
   }
 }

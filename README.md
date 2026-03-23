@@ -11,7 +11,7 @@
 - 🎤 语音识别和评估
 - ⭐ 游戏化奖励系统
 - 👨‍👩‍👧‍👦 家长模式
-- ⚙️ App内配置阿里云密钥
+- ⚙️ App内配置百炼API Key（只需一个密钥）
 
 ## 三步教学法
 
@@ -22,8 +22,8 @@
 ## 技术栈
 
 - Flutter 3.0+
-- 阿里云AI（OCR + TTS + 语音识别）
-- SharedPreferences（本地存储密钥）
+- 阿里云百炼MAAS（OCR + TTS + 语音识别）
+- 一个API Key搞定所有AI服务
 
 ## 快速开始
 
@@ -31,20 +31,14 @@
 
 从 [Releases](https://github.com/TenonJoiner/kids-english-reader/releases) 下载最新APK并安装。
 
-### 2. 配置阿里云密钥
+### 2. 配置百炼API Key
 
-**首次打开App时**，需要配置阿里云API密钥：
+**首次打开App时**，需要配置阿里云百炼API Key：
 
-1. 访问 https://ai.aliyun.com
+1. 访问 https://bailian.console.aliyun.com
 2. 注册/登录阿里云账号
-3. 开通以下服务：
-   - **文字识别**（OCR）
-   - **语音合成**（TTS）
-   - **语音识别**
-4. 获取密钥：
-   - AccessKey ID / Secret（右上角 → AccessKey管理）
-   - AppKey（语音合成/识别控制台 → 创建应用）
-5. 在App设置页面填入密钥
+3. 点击"创建API Key"
+4. 复制API Key到App设置页面
 
 ### 3. 开始使用
 
@@ -52,13 +46,13 @@
 - OCR识别绘本文字
 - 按"听-说-读"三步学习
 
-## 阿里云费用
+## 百炼MAAS费用
 
 | 服务 | 免费额度 | 超出后 |
 |------|---------|--------|
-| OCR文字识别 | 1万次/月 | 0.01元/次 |
-| 语音合成TTS | 10万字/月 | 0.2元/千字 |
-| 语音识别 | 2小时/月 | 1.6元/小时 |
+| OCR文字识别 | 1000次/月 | 0.01元/次 |
+| 语音合成TTS | 1000次/月 | 0.01元/次 |
+| 语音识别 | 1000次/月 | 0.01元/次 |
 
 个人使用完全免费。
 
@@ -90,26 +84,26 @@ lib/
 │   ├── camera_screen.dart # 相机/相册选择
 │   ├── learning_screen.dart # 学习页面
 │   ├── parent_screen.dart # 家长模式
-│   └── settings_screen.dart # 设置页面（配置密钥）
+│   └── settings_screen.dart # 设置页面（配置API Key）
 └── services/              # 服务
     ├── settings_service.dart   # 本地设置管理
-    ├── ocr_service.dart        # 阿里云OCR
-    ├── tts_service.dart        # 阿里云TTS
-    └── speech_service.dart     # 阿里云语音识别
+    ├── ocr_service.dart        # 百炼OCR
+    ├── tts_service.dart        # 百炼TTS
+    └── speech_service.dart     # 百炼语音识别
 ```
 
 ## 隐私说明
 
-- 阿里云密钥仅保存在手机本地（SharedPreferences）
+- 百炼API Key仅保存在手机本地（SharedPreferences）
 - 不会上传到任何服务器
 - 拍照的绘本图片仅用于OCR识别，不会保存
 
 ## 注意事项
 
-1. **首次使用必须配置密钥**，否则无法使用核心功能
-2. **需要联网**，所有AI服务都在云端运行
+1. **首次使用必须配置API Key**，否则无法使用核心功能
+2. **需要联网**，所有AI服务都在百炼云端运行
 3. **授予权限**：相机（拍照）、麦克风（语音识别）
-4. **华为手机**：已适配国内阿里云服务
+4. **华为手机**：已适配
 
 ## 后续优化方向
 

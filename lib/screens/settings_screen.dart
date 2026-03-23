@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import '../services/settings_service.dart';
 import 'home_screen.dart';
 
-/// 设置页面 - 配置阿里云API密钥
+/// 设置页面 - 配置百炼API Key
 class SettingsScreen extends StatefulWidget {
   final bool isFirstSetup;
   
@@ -20,12 +20,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _formKey = GlobalKey<FormState>();
   final _settingsService = SettingsService();
   
-  final _accessKeyIdController = TextEditingController();
-  final _accessKeySecretController = TextEditingController();
-  final _appKeyController = TextEditingController();
+  final _apiKeyController = TextEditingController();
   
   bool _isLoading = false;
-  bool _showSecret = false;
+  bool _showApiKey = false;
 
   @override
   void initState() {
@@ -36,9 +34,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadSettings() async {
     await _settingsService.init();
     setState(() {
-      _accessKeyIdController.text = _settingsService.accessKeyId ?? '';
-      _accessKeySecretController.text = _settingsService.accessKeySecret ?? '';
-      _appKeyController.text = _settingsService.appKey ?? '';
+      _apiKeyController.text = _settingsService.apiKey ?? '';
     });
   }
 
@@ -48,9 +44,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await _settingsService.setAccessKeyId(_accessKeyIdController.text.trim());
-      await _settingsService.setAccessKeySecret(_accessKeySecretController.text.trim());
-      await _settingsService.setAppKey(_appKeyController.text.trim());
+      await _settingsService.setApiKey(_apiKeyController.text.trim());
       await _settingsService.setFirstRunComplete();
 
       if (mounted) {
@@ -62,7 +56,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
 
         if (widget.isFirstSetup) {
-          // 首次设置，跳转到首页
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => const HomeScreen()),
@@ -124,7 +117,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 10),
                   const Center(
                     child: Text(
-                      '请先配置阿里云API密钥',
+                      '请先配置阿里云百炼API Key',
                       style: TextStyle(
                         fontSize: 16,
                         color: Color(0xFF8D6E63),
@@ -142,15 +135,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Colors.blue.withOpacity(0.3)),
                   ),
-                  child: Column(
+                  child: const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
                           Icon(Icons.info_outline, color: Colors.blue),
                           SizedBox(width: 8),
                           Text(
-                            '如何获取密钥？',
+                            '如何获取百炼API Key？',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               color: Colors.blue,
@@ -158,12 +151,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        '1. 访问 ai.aliyun.com\n'
+                      SizedBox(height: 8),
+                      Text(
+                        '1. 访问 https://bailian.console.aliyun.com\n'
                         '2. 注册/登录阿里云账号\n'
-                        '3. 开通语音合成、语音识别、文字识别服务\n'
-                        '4. 在控制台获取AccessKey和AppKey',
+                        '3. 创建API Key\n'
+                        '4. 复制API Key到下方',
                         style: TextStyle(
                           fontSize: 14,
                           color: Color(0xFF5D4037),
@@ -176,60 +169,61 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                 const SizedBox(height: 30),
 
-                // AccessKey ID
-                _buildTextField(
-                  controller: _accessKeyIdController,
-                  label: 'AccessKey ID',
-                  hint: '请输入AccessKey ID',
-                  icon: Icons.key,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'AccessKey ID不能为空';
-                    }
-                    return null;
-                  },
-                ),
-
-                const SizedBox(height: 20),
-
-                // AccessKey Secret
-                _buildTextField(
-                  controller: _accessKeySecretController,
-                  label: 'AccessKey Secret',
-                  hint: '请输入AccessKey Secret',
-                  icon: Icons.lock,
-                  obscureText: !_showSecret,
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _showSecret ? Icons.visibility_off : Icons.visibility,
-                      color: Colors.grey,
+                // API Key输入框
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '百炼API Key',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF5D4037),
+                      ),
                     ),
-                    onPressed: () {
-                      setState(() => _showSecret = !_showSecret);
-                    },
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'AccessKey Secret不能为空';
-                    }
-                    return null;
-                  },
-                ),
-
-                const SizedBox(height: 20),
-
-                // AppKey
-                _buildTextField(
-                  controller: _appKeyController,
-                  label: 'AppKey',
-                  hint: '请输入AppKey',
-                  icon: Icons.apps,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'AppKey不能为空';
-                    }
-                    return null;
-                  },
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      controller: _apiKeyController,
+                      obscureText: !_showApiKey,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'API Key不能为空';
+                        }
+                        return null;
+                      },
+                      decoration: InputDecoration(
+                        hintText: '请输入百炼API Key',
+                        prefixIcon: const Icon(Icons.key, color: Colors.orange),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _showApiKey ? Icons.visibility_off : Icons.visibility,
+                            color: Colors.grey,
+                          ),
+                          onPressed: () {
+                            setState(() => _showApiKey = !_showApiKey);
+                          },
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Colors.orange, width: 2),
+                        ),
+                        errorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Colors.red, width: 2),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
 
                 const SizedBox(height: 40),
@@ -282,64 +276,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required IconData icon,
-    bool obscureText = false,
-    Widget? suffixIcon,
-    String? Function(String?)? validator,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF5D4037),
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          obscureText: obscureText,
-          validator: validator,
-          decoration: InputDecoration(
-            hintText: hint,
-            prefixIcon: Icon(icon, color: Colors.orange),
-            suffixIcon: suffixIcon,
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Colors.orange, width: 2),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Colors.red, width: 2),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   @override
   void dispose() {
-    _accessKeyIdController.dispose();
-    _accessKeySecretController.dispose();
-    _appKeyController.dispose();
+    _apiKeyController.dispose();
     super.dispose();
   }
 }
