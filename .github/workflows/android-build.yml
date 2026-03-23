@@ -40,7 +40,10 @@ jobs:
         cp -r /tmp/assets_backup assets 2>/dev/null || true
         cp /tmp/pubspec_backup.yaml pubspec.yaml
         
-        # 添加Android配置
+        # 修改Android配置 - 提高minSdkVersion到21
+        sed -i 's/minSdkVersion .*/minSdkVersion 21/' android/app/build.gradle
+        
+        # 添加Gradle配置
         echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m" >> android/gradle.properties
     
     - name: Get dependencies
