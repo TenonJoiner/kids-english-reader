@@ -5,70 +5,105 @@ import 'package:http/http.dart' as http;
 import 'package:crypto/crypto.dart';
 import 'package:path_provider/path_provider.dart';
 
-/// 百度语音识别服务
-class BaiduSpeechService {
-  static const String _tokenUrl = 'https://aip.baidubce.com/oauth/2.0/token';
-  static const String _asrUrl = 'https://vop.baidu.com/server_api';
+/// 阿里云语音识别服务
+class AliyunSpeechService {
+  static const String _endpoint = 'nls-meta.cn-shanghai.aliyuncs.com';
+  static const String _asrEndpoint = 'nls-gateway-cn-shanghai.aliyuncs.com/ws/v1';
   
-  final String _apiKey;
-  final String _secretKey;
-  String? _accessToken;
+  final String _accessKeyId;
+  final String _accessKeySecret;
+  final String _appKey;
+  String? _token;
   DateTime? _tokenExpireTime;
   bool _isListening = false;
 
-  BaiduSpeechService({
-    required String apiKey,
-    required String secretKey,
-  })  : _apiKey = apiKey,
-        _secretKey = secretKey;
+  AliyunSpeechService({
+    required String accessKeyId,
+    required String accessKeySecret,
+    required String appKey,
+  })  : _accessKeyId = accessKeyId,
+        _accessKeySecret = accessKeySecret,
+        _appKey = appKey;
 
   bool get isListening => _isListening;
 
-  /// 获取Access Token
-  Future<String> _getAccessToken() async {
-    if (_accessToken != null && 
-        _tokenExpireTime != null && 
+  /// 获取Token
+  Future<String> _getToken() async {
+    if (_token != null && _tokenExpireTime != null && 
         DateTime.now().isBefore(_tokenExpireTime!)) {
-      return _accessToken!;
+      return _token!;
     }
 
-    final response = await http.post(
-      Uri.parse('$_tokenUrl?grant_type=client_credentials&client_id=$_apiKey&client_secret=$_secretKey'),
+    try {
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final params = {
+        'AccessKeyId': _accessKeyId,
+        'Action': 'CreateToken',
+        'Version': '2019-02-28',
+        'Timestamp': timestamp.toString(),
+        'SignatureMethod': 'HMAC-SHA1',
+        'SignatureVersion': '1.0',
+        'SignatureNonce': timestamp.toString(),
+        'Format': 'JSON',
+      };
+
+      final signature = _generateSignature(params);
+      params['Signature'] = signature;
+
+      final response = await http.post(
+        Uri.parse('https://$_endpoint/'),
+        body: params,
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final tokenData = data['Token'];
+        _token = tokenData['Id'];
+        final expireTime = tokenData['ExpireTime'];
+        _tokenExpireTime = DateTime.fromMillisecondsSinceEpoch(expireTime * 1000 - 60000);
+        return _token!;
+      } else {
+        throw Exception('获取Token失败: ${response.body}');
+      }
+    } catch (e) {
+      print('Token Error: $e');
+      rethrow;
+    }
+  }
+
+  /// 生成签名
+  String _generateSignature(Map<String, String> params) {
+    final sortedParams = Map.fromEntries(
+      params.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
     );
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      _accessToken = data['access_token'];
-      final expiresIn = data['expires_in'] as int;
-      _tokenExpireTime = DateTime.now().add(Duration(seconds: expiresIn - 60));
-      return _accessToken!;
-    } else {
-      throw Exception('获取Access Token失败: ${response.body}');
-    }
+    
+    final canonicalQueryString = sortedParams.entries
+        .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+        .join('&');
+    
+    final stringToSign = 'POST&${Uri.encodeComponent('/')}&${Uri.encodeComponent(canonicalQueryString)}';
+    final key = utf8.encode('$_accessKeySecret&');
+    final bytes = utf8.encode(stringToSign);
+    final hmac = Hmac(sha1, key);
+    final digest = hmac.convert(bytes);
+    return base64Encode(digest.bytes);
   }
 
   /// 初始化
   Future<void> init() async {
-    // 预获取token
-    await _getAccessToken();
+    await _getToken();
   }
 
-  /// 开始录音并识别（简化版，实际应使用录音插件）
+  /// 开始录音并识别（简化版）
   Future<String> listen() async {
     _isListening = true;
     
     try {
-      // 注意：这里需要一个录音插件来实际录音
-      // 简化实现，返回空字符串
-      // 实际应该：
-      // 1. 使用 record 或 flutter_sound 插件录音
-      // 2. 将录音文件转为base64
-      // 3. 调用百度ASR API
-      
-      await Future.delayed(const Duration(seconds: 3)); // 模拟录音时间
+      // 实际应该使用录音插件录音，然后调用识别API
+      await Future.delayed(const Duration(seconds: 3));
       
       _isListening = false;
-      return ''; // 实际返回识别结果
+      return '';
     } catch (e) {
       _isListening = false;
       print('语音识别错误: $e');
@@ -79,60 +114,28 @@ class BaiduSpeechService {
   /// 识别音频文件
   Future<String> recognizeAudioFile(String audioPath) async {
     try {
-      final token = await _getAccessToken();
+      final token = await _getToken();
       final audioBytes = await File(audioPath).readAsBytes();
       final base64Audio = base64Encode(audioBytes);
 
-      final response = await http.post(
-        Uri.parse(_asrUrl),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'format': 'pcm',
-          'rate': 16000,
-          'channel': 1,
-          'cuid': 'kids-english-reader',
-          'token': token,
-          'speech': base64Audio,
-          'len': audioBytes.length,
-        }),
-      );
+      // 构建识别请求
+      final request = {
+        'appkey': _appKey,
+        'token': token,
+        'format': 'pcm',
+        'sample_rate': 16000,
+        'enable_intermediate_result': false,
+        'enable_punctuation_prediction': true,
+        'enable_inverse_text_normalization': true,
+      };
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        if (data['err_no'] == 0) {
-          final result = data['result'] as List<dynamic>?;
-          if (result != null && result.isNotEmpty) {
-            return result[0] as String;
-          }
-        }
-        print('ASR错误: ${data['err_msg']}');
-        return '';
-      } else {
-        print('ASR请求失败: ${response.body}');
-        return '';
-      }
+      // WebSocket连接进行实时识别
+      // 简化实现，实际需要WebSocket连接
+      
+      return '';
     } catch (e) {
       print('ASR Error: $e');
       return '';
     }
   }
-}
-
-/// 讯飞语音识别服务（备用）
-class XunfeiSpeechService {
-  final String _appId;
-  final String _apiKey;
-  final String _apiSecret;
-
-  XunfeiSpeechService({
-    required String appId,
-    required String apiKey,
-    required String apiSecret,
-  })  : _appId = appId,
-        _apiKey = apiKey,
-        _apiSecret = apiSecret;
-
-  // 讯飞语音识别实现...
 }

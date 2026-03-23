@@ -3,71 +3,74 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:crypto/crypto.dart';
 
-/// 百度OCR服务
-class BaiduOCRService {
-  static const String _tokenUrl = 'https://aip.baidubce.com/oauth/2.0/token';
-  static const String _ocrUrl = 'https://aip.baidubce.com/rest/2.0/ocr/v1/general_basic';
+/// 阿里云OCR服务
+class AliyunOCRService {
+  static const String _endpoint = 'ocr.aliyuncs.com';
   
-  final String _apiKey;
-  final String _secretKey;
-  String? _accessToken;
-  DateTime? _tokenExpireTime;
+  final String _accessKeyId;
+  final String _accessKeySecret;
 
-  BaiduOCRService({
-    required String apiKey,
-    required String secretKey,
-  })  : _apiKey = apiKey,
-        _secretKey = secretKey;
+  AliyunOCRService({
+    required String accessKeyId,
+    required String accessKeySecret,
+  })  : _accessKeyId = accessKeyId,
+        _accessKeySecret = accessKeySecret;
 
-  /// 获取Access Token
-  Future<String> _getAccessToken() async {
-    if (_accessToken != null && 
-        _tokenExpireTime != null && 
-        DateTime.now().isBefore(_tokenExpireTime!)) {
-      return _accessToken!;
-    }
-
-    final response = await http.post(
-      Uri.parse('$_tokenUrl?grant_type=client_credentials&client_id=$_apiKey&client_secret=$_secretKey'),
-    );
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      _accessToken = data['access_token'];
-      final expiresIn = data['expires_in'] as int;
-      _tokenExpireTime = DateTime.now().add(Duration(seconds: expiresIn - 60));
-      return _accessToken!;
-    } else {
-      throw Exception('获取Access Token失败: ${response.body}');
-    }
+  /// 生成签名
+  String _generateSignature(String stringToSign) {
+    final key = utf8.encode(_accessKeySecret);
+    final bytes = utf8.encode(stringToSign);
+    final hmac = Hmac(sha1, key);
+    final digest = hmac.convert(bytes);
+    return base64Encode(digest.bytes);
   }
 
   /// 识别图片文字
   Future<String> recognizeText(String imagePath) async {
     try {
-      final token = await _getAccessToken();
       final imageBytes = await File(imagePath).readAsBytes();
       final base64Image = base64Encode(imageBytes);
 
+      // 构建请求参数
+      final params = {
+        'Action': 'RecognizeGeneral',
+        'Version': '2021-07-07',
+        'Format': 'JSON',
+        'AccessKeyId': _accessKeyId,
+        'SignatureMethod': 'HMAC-SHA1',
+        'Timestamp': _getTimestamp(),
+        'SignatureVersion': '1.0',
+        'SignatureNonce': DateTime.now().millisecondsSinceEpoch.toString(),
+        'ImageURL': '', // 使用Base64图片
+        'ImageBase64': base64Image,
+      };
+
+      // 计算签名
+      final sortedParams = Map.fromEntries(
+        params.entries.toList()..sort((a, b) => a.key.compareTo(b.key)),
+      );
+      
+      final canonicalQueryString = sortedParams.entries
+          .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
+          .join('&');
+      
+      final stringToSign = 'POST&${Uri.encodeComponent('/')}&${Uri.encodeComponent(canonicalQueryString)}';
+      final signature = _generateSignature(stringToSign);
+
+      // 发送请求
       final response = await http.post(
-        Uri.parse('$_ocrUrl?access_token=$token'),
+        Uri.parse('https://$_endpoint/?Signature=$signature'),
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: {
-          'image': base64Image,
-          'language_type': 'ENG', // 英文识别
-        },
+        body: canonicalQueryString,
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final wordsResult = data['words_result'] as List<dynamic>?;
-        
-        if (wordsResult != null && wordsResult.isNotEmpty) {
-          final words = wordsResult.map((item) => item['words'] as String).join(' ');
-          // 限制长度
-          return words.length > 100 ? words.substring(0, 100) : words;
+        final content = data['Content'] as String?;
+        if (content != null && content.isNotEmpty) {
+          return content.length > 100 ? content.substring(0, 100) : content;
         }
         return '';
       } else {
@@ -79,23 +82,9 @@ class BaiduOCRService {
       return '';
     }
   }
-}
 
-/// 腾讯OCR服务（备用）
-class TencentOCRService {
-  final String _secretId;
-  final String _secretKey;
-  static const String _endpoint = 'ocr.tencentcloudapi.com';
-
-  TencentOCRService({
-    required String secretId,
-    required String secretKey,
-  })  : _secretId = secretId,
-        _secretKey = secretKey;
-
-  Future<String> recognizeText(String imagePath) async {
-    // 腾讯OCR实现...
-    // 作为备用方案
-    return '';
+  String _getTimestamp() {
+    final now = DateTime.now().toUtc();
+    return now.toIso8601String().replaceAll(RegExp(r'\.\d+'), '');
   }
 }

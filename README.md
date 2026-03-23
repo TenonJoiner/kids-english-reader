@@ -21,26 +21,39 @@
 ## 技术栈
 
 - Flutter 3.0+
-- 百度AI（OCR + TTS + ASR）
-- 国内服务，稳定访问
+- 阿里云AI（OCR + TTS + 语音识别）
+- 一个账号，三个服务
 
 ## 快速开始
 
-### 1. 配置API Key
+### 1. 配置阿里云
 
-复制 `.env.example` 为 `.env`，填入你的百度AI API Key：
+1. 访问 https://www.aliyun.com
+2. 注册/登录 → 实名认证
+3. 开通以下服务：
+   - **文字识别**（OCR）
+   - **语音合成**（TTS）
+   - **语音识别**
+4. 创建AccessKey（右上角头像 → AccessKey管理）
+5. 获取AppKey（在各服务控制台创建应用）
+
+### 2. 配置环境变量
+
+复制 `.env.example` 为 `.env`：
 
 ```bash
 cp .env.example .env
-# 编辑 .env 文件，填入你的API Key
 ```
 
-获取API Key：
-- 访问 [百度AI开放平台](https://ai.baidu.com)
-- 注册账号并创建应用
-- 获取 AppID、API Key、Secret Key
+编辑 `.env` 文件：
 
-### 2. 本地运行
+```
+ALIBABA_ACCESS_KEY_ID=你的AccessKeyID
+ALIBABA_ACCESS_KEY_SECRET=你的AccessKeySecret
+ALIBABA_APP_KEY=你的AppKey
+```
+
+### 3. 本地运行
 
 ```bash
 # 安装依赖
@@ -50,7 +63,7 @@ flutter pub get
 flutter run
 ```
 
-### 3. 构建发布
+### 4. 构建发布
 
 ```bash
 # Android APK
@@ -64,10 +77,13 @@ flutter build appbundle --release
 
 ### Codemagic（免费）
 
-1. 访问 [Codemagic](https://codemagic.io)
+1. 访问 https://codemagic.io
 2. 使用GitHub账号登录
 3. 导入本项目
-4. 配置环境变量（百度API Key）
+4. 在 Environment Variables 中添加：
+   - `ALIBABA_ACCESS_KEY_ID`
+   - `ALIBABA_ACCESS_KEY_SECRET`
+   - `ALIBABA_APP_KEY`
 5. 点击 "Start new build"
 
 构建完成后，APK会自动发送到你的邮箱。
@@ -83,27 +99,27 @@ lib/
 │   ├── learning_screen.dart # 学习页面
 │   └── parent_screen.dart # 家长模式
 └── services/              # 服务
-    ├── ocr_service.dart   # 百度OCR
-    ├── tts_service.dart   # 百度TTS
-    └── speech_service.dart # 百度语音识别
+    ├── ocr_service.dart   # 阿里云OCR
+    ├── tts_service.dart   # 阿里云TTS
+    └── speech_service.dart # 阿里云语音识别
 ```
 
 ## 注意事项
 
 1. **API Key安全**：不要把 `.env` 文件提交到GitHub
 2. **首次运行**：需要授权相机和麦克风权限
-3. **网络要求**：OCR/TTS/语音识别需要联网
-4. **华为手机**：已在代码中适配国内服务
+3. **网络要求**：需要联网使用阿里云服务
+4. **华为手机**：已适配国内阿里云服务
 
-## 服务说明
+## 阿里云费用
 
-| 功能 | 服务 | 费用 |
-|------|------|------|
-| OCR文字识别 | 百度AI | 免费额度5万次/天 |
-| 语音合成TTS | 百度AI | 免费额度20万次/天 |
-| 语音识别ASR | 百度AI | 免费额度5万次/天 |
+| 服务 | 免费额度 | 超出后 |
+|------|---------|--------|
+| OCR文字识别 | 1万次/月 | 0.01元/次 |
+| 语音合成TTS | 10万字/月 | 0.2元/千字 |
+| 语音识别 | 2小时/月 | 1.6元/小时 |
 
-免费额度足够个人使用。
+个人使用完全免费。
 
 ## 后续优化方向
 
