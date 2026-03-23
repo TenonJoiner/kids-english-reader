@@ -1,0 +1,82 @@
+name: Android Build
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+  # 手动触发
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.19.0'
+        channel: 'stable'
+    
+    - name: Cache Flutter dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.pub-cache
+          ${{ github.workspace }}/.dart_tool
+        key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-flutter-
+    
+    - name: Create .env file
+      run: |
+        echo "ALIBABA_ACCESS_KEY_ID=${{ secrets.ALIBABA_ACCESS_KEY_ID }}" > .env
+        echo "ALIBABA_ACCESS_KEY_SECRET=${{ secrets.ALIBABA_ACCESS_KEY_SECRET }}" >> .env
+        echo "ALIBABA_APP_KEY=${{ secrets.ALIBABA_APP_KEY }}" >> .env
+        echo ".env文件已创建"
+    
+    - name: Get dependencies
+      run: flutter pub get
+    
+    - name: Build APK
+      run: flutter build apk --release
+    
+    - name: Build AppBundle
+      run: flutter build appbundle --release
+    
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-apk
+        path: build/app/outputs/flutter-apk/app-release.apk
+    
+    - name: Upload AppBundle
+      uses: actions/upload-artifact@v4
+      with:
+        name: release-aab
+        path: build/app/outputs/bundle/release/app-release.aab
+    
+    - name: Create Release
+      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: "build/app/outputs/flutter-apk/app-release.apk,build/app/outputs/bundle/release/app-release.aab"
+        tag: v${{ github.run_number }}
+        name: Release v${{ github.run_number }}
+        body: |
+          自动构建的APK和AppBundle
+          
+          ## 安装说明
+          1. 下载 `app-release.apk`
+          2. 在Android手机上安装
+          3. 授予相机和麦克风权限
+          
+          ## 注意事项
+          - 需要联网使用阿里云服务
+          - 首次使用需要配置阿里云API Key
+        token: ${{ secrets.GITHUB_TOKEN }}
+        allowUpdates: true
+        replacesArtifacts: true
