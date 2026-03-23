@@ -3,9 +3,6 @@ name: Android Build
 on:
   push:
     branches: [ master, main ]
-  pull_request:
-    branches: [ master, main ]
-  # 手动触发
   workflow_dispatch:
 
 jobs:
@@ -18,18 +15,8 @@ jobs:
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.19.0'
+        flutter-version: '3.16.0'
         channel: 'stable'
-    
-    - name: Cache Flutter dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.pub-cache
-          ${{ github.workspace }}/.dart_tool
-        key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-flutter-
     
     - name: Get dependencies
       run: flutter pub get
@@ -37,26 +24,17 @@ jobs:
     - name: Build APK
       run: flutter build apk --release
     
-    - name: Build AppBundle
-      run: flutter build appbundle --release
-    
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: release-apk
         path: build/app/outputs/flutter-apk/app-release.apk
     
-    - name: Upload AppBundle
-      uses: actions/upload-artifact@v4
-      with:
-        name: release-aab
-        path: build/app/outputs/bundle/release/app-release.aab
-    
     - name: Create Release
       if: github.event_name == 'push' && github.ref == 'refs/heads/master'
       uses: ncipollo/release-action@v1
       with:
-        artifacts: "build/app/outputs/flutter-apk/app-release.apk,build/app/outputs/bundle/release/app-release.aab"
+        artifacts: "build/app/outputs/flutter-apk/app-release.apk"
         tag: v${{ github.run_number }}
         name: Release v${{ github.run_number }}
         body: |
@@ -66,18 +44,6 @@ jobs:
           1. 下载 `app-release.apk`
           2. 在Android手机上安装
           3. 首次打开时配置阿里云API密钥
-          4. 授予相机和麦克风权限
-          
-          ## 配置说明
-          首次使用需要在App内配置阿里云密钥：
-          1. 访问 https://ai.aliyun.com 注册账号
-          2. 开通语音合成、语音识别、文字识别服务
-          3. 在控制台获取AccessKey和AppKey
-          4. 在App设置页面填入密钥
-          
-          ## 注意事项
-          - 需要联网使用阿里云服务
-          - 密钥仅保存在本地，不会上传
         token: ${{ secrets.GITHUB_TOKEN }}
         allowUpdates: true
         replacesArtifacts: true
