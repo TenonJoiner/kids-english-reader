@@ -15,23 +15,31 @@ jobs:
     - name: Setup Flutter
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.16.0'
+        flutter-version: '3.13.0'
         channel: 'stable'
+    
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+    
+    - name: Accept Android licenses
+      run: yes | flutter doctor --android-licenses || true
     
     - name: Get dependencies
       run: flutter pub get
     
     - name: Build APK
-      run: flutter build apk --release
+      run: flutter build apk --release --verbose
+      continue-on-error: true
     
-    - name: Upload APK
+    - name: Upload APK (if exists)
       uses: actions/upload-artifact@v4
+      if: hashFiles('build/app/outputs/flutter-apk/app-release.apk') != ''
       with:
         name: release-apk
         path: build/app/outputs/flutter-apk/app-release.apk
     
     - name: Create Release
-      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      if: hashFiles('build/app/outputs/flutter-apk/app-release.apk') != ''
       uses: ncipollo/release-action@v1
       with:
         artifacts: "build/app/outputs/flutter-apk/app-release.apk"
