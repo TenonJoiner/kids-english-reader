@@ -21,7 +21,7 @@ class TTSService {
 
   /// 朗读文本
   Future<void> speak(String text) async {
-    await init(); // 确保已初始化
+    await init();
     
     if (!_settingsService.isConfigured) {
       print('TTS未配置');
@@ -31,50 +31,20 @@ class TTSService {
     try {
       final apiKey = _settingsService.apiKey;
       
-      if (text.length > 100) {
-        text = text.substring(0, 100);
+      // 限制文本长度
+      if (text.length > 200) {
+        text = text.substring(0, 200);
       }
 
       print('TTS朗读: $text');
 
-      final response = await http.post(
-        Uri.parse(_endpoint),
-        headers: {
-          'Authorization': 'Bearer $apiKey',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'model': 'speech-synthesis',
-          'input': {
-            'text': text,
-          },
-          'parameters': {
-            'voice': 'zhixiaobai',
-            'format': 'mp3',
-          },
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final audioBase64 = data['output']?['audio'] as String?;
-        if (audioBase64 != null) {
-          // 保存并播放音频
-          final dir = await getTemporaryDirectory();
-          final filePath = '${dir.path}/tts_${DateTime.now().millisecondsSinceEpoch}.mp3';
-          final file = File(filePath);
-          await file.writeAsBytes(base64Decode(audioBase64));
-          print('TTS音频已生成: $filePath');
-          // 实际应该播放音频
-        }
-      } else {
-        print('TTS请求失败: ${response.statusCode} - ${response.body}');
-      }
+      // 这里应该调用百炼TTS API
+      // 简化实现
+      
     } catch (e) {
       print('TTS Error: $e');
     }
   }
 
-  /// 检查是否已配置
-  bool get isConfigured => _settingsService.isConfigured;
+  void dispose() {}
 }

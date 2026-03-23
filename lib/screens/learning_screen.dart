@@ -1,17 +1,21 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../services/tts_service.dart';
 import '../services/speech_service.dart';
+import '../services/pronunciation_service.dart';
 import 'home_screen.dart';
 
+/// AI老师教学模式
+/// 基于TPR+自然拼读的科学教学方法
 class LearningScreen extends StatefulWidget {
   final String imagePath;
-  final String recognizedText;
+  final String bookText;
 
   const LearningScreen({
     super.key,
     required this.imagePath,
-    required this.recognizedText,
+    required this.bookText,
   });
 
   @override
@@ -21,229 +25,249 @@ class LearningScreen extends StatefulWidget {
 class _LearningScreenState extends State<LearningScreen> {
   final TTSService _ttsService = TTSService();
   final SpeechService _speechService = SpeechService();
-  
-  int _currentStep = 0; // 0:听, 1:说, 2:读
+  final PronunciationService _pronunciationService = PronunciationService();
+
+  // 教学状态
+  TeachingPhase _currentPhase = TeachingPhase.preReading;
+  int _currentSentenceIndex = 0;
+  List<String> _sentences = [];
+  Map<int, double> _sentenceScores = {};
   bool _isListening = false;
-  String _spokenText = '';
-  int _score = 0;
-  bool _showResult = false;
+  bool _isProcessing = false;
+
+  // 学习统计
+  int _stars = 0;
+  List<String> _newWords = [];
 
   @override
   void initState() {
     super.initState();
-    _initServices();
+    _initLearning();
   }
 
-  Future<void> _initServices() async {
+  Future<void> _initLearning() async {
+    // 初始化服务
     await _ttsService.init();
     await _speechService.init();
+    await _pronunciationService.init();
+
+    // 分割句子
+    _sentences = _splitIntoSentences(widget.bookText);
     
-    // 自动开始第一步：听
-    Future.delayed(const Duration(milliseconds: 500), () {
-      _speakText();
-    });
+    // 开始教学
+    _startTeaching();
   }
 
-  void _speakText() {
-    _ttsService.speak(widget.recognizedText);
+  List<String> _splitIntoSentences(String text) {
+    // 按句子分割（考虑标点符号）
+    final sentences = text
+        .replaceAll('。', '.')
+        .replaceAll('！', '!')
+        .replaceAll('？', '?')
+        .split(RegExp(r'[.!?]+'))
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    
+    // 如果句子太长，再按逗号分割
+    final result = <String>[];
+    for (final sentence in sentences) {
+      if (sentence.length > 50) {
+        final parts = sentence.split(',');
+        result.addAll(parts.map((p) => p.trim()).where((p) => p.isNotEmpty));
+      } else {
+        result.add(sentence);
+      }
+    }
+    
+    return result.take(10).toList(); // 最多10句
   }
 
-  void _speakWord(String word) {
-    _ttsService.speak(word);
+  Future<void> _startTeaching() async {
+    // 阶段1：预读 - 建立兴趣
+    setState(() => _currentPhase = TeachingPhase.preReading);
+    await _ttsService.speak('你好！我是你的英语老师。今天我们学习这本绘本。准备好了吗？我们开始吧！');
+    await Future.delayed(const Duration(seconds: 3));
+
+    // 阶段2：示范读
+    setState(() => _currentPhase = TeachingPhase.modelReading);
+    await _ttsService.speak('先听老师读一遍：');
+    await Future.delayed(const Duration(seconds: 1));
+    
+    for (int i = 0; i < _sentences.length; i++) {
+      await _ttsService.speak(_sentences[i]);
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
+
+    // 阶段3：逐句跟读教学
+    setState(() => _currentPhase = TeachingPhase.choralReading);
+    await _ttsService.speak('现在，我们一句一句来学习。跟我读：');
+    await Future.delayed(const Duration(seconds: 1));
+
+    await _teachSentenceBySentence();
   }
 
-  Future<void> _startListening() async {
+  Future<void> _teachSentenceBySentence() async {
+    for (int i = 0; i < _sentences.length; i++) {
+      setState(() => _currentSentenceIndex = i);
+      final sentence = _sentences[i];
+      
+      // AI读
+      await _ttsService.speak(sentence);
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // 提示学生跟读
+      await _ttsService.speak('轮到你了！');
+      
+      // 录音并评估
+      final score = await _recordAndEvaluate(sentence);
+      _sentenceScores[i] = score;
+
+      // 根据分数决定下一步
+      if (score >= 85) {
+        // 优秀，进入下一句
+        await _ttsService.speak('非常好！发音很标准。');
+      } else if (score >= 70) {
+        // 良好，再读一遍
+        await _ttsService.speak('不错，我们再读一遍巩固一下。');
+        await _ttsService.speak(sentence);
+        await Future.delayed(const Duration(milliseconds: 300));
+        await _ttsService.speak('轮到你了！');
+        await _recordAndEvaluate(sentence);
+      } else {
+        // 需要拆解教学
+        await _ttsService.speak('这个句子有点难，我们慢慢学。');
+        await _teachWordByWord(sentence);
+      }
+
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
+
+    // 阶段4：尝试读（加长）
+    await _guidedReading();
+  }
+
+  Future<double> _recordAndEvaluate(String expectedText) async {
     setState(() => _isListening = true);
     
-    final result = await _speechService.listen();
+    // 录音3秒
+    final spokenText = await _speechService.listen(duration: const Duration(seconds: 3));
     
-    setState(() {
-      _isListening = false;
-      _spokenText = result;
-    });
-
-    if (result.isNotEmpty) {
-      _evaluateSpeech();
-    }
+    setState(() => _isListening = false);
+    
+    // 评估发音
+    final score = _pronunciationService.evaluate(expectedText, spokenText);
+    return score;
   }
 
-  void _evaluateSpeech() {
-    // 简单的相似度计算
-    final target = widget.recognizedText.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z\s]'), '');
-    final spoken = _spokenText.toLowerCase().replaceAll(RegExp(r'[^a-zA-Z\s]'), '');
+  Future<void> _teachWordByWord(String sentence) async {
+    final words = sentence.split(' ');
     
-    // 计算匹配度
-    final targetWords = target.split(' ').where((w) => w.isNotEmpty).toList();
-    final spokenWords = spoken.split(' ').where((w) => w.isNotEmpty).toList();
+    await _ttsService.speak('我们一个单词一个单词来学：');
     
-    int matchedWords = 0;
-    for (final word in spokenWords) {
-      if (targetWords.contains(word)) {
-        matchedWords++;
-      }
-    }
-    
-    final accuracy = targetWords.isEmpty 
-        ? 0 
-        : (matchedWords / targetWords.length * 100).round();
-    
-    setState(() {
-      _score = accuracy.clamp(0, 100);
-      _showResult = true;
-    });
-
-    // 语音反馈
-    if (_score >= 80) {
-      _ttsService.speak('太棒了！发音很标准');
-    } else if (_score >= 60) {
-      _ttsService.speak('不错，再练习一下会更好');
-    } else {
-      _ttsService.speak('我们再听一遍，然后跟着读');
-    }
-  }
-
-  void _nextStep() {
-    setState(() {
-      _showResult = false;
-      _spokenText = '';
-      _score = 0;
+    for (final word in words) {
+      // 教单词
+      await _ttsService.speak(word);
+      await Future.delayed(const Duration(milliseconds: 300));
       
-      if (_currentStep < 2) {
-        _currentStep++;
-        if (_currentStep == 1) {
-          _ttsService.speak('现在轮到你了，按住按钮跟我读');
-        } else if (_currentStep == 2) {
-          _ttsService.speak('很好！现在你自己读一遍');
+      // 拆解音素（简单版）
+      if (word.length <= 5) {
+        final phonemes = _pronunciationService.getPhonemes(word);
+        if (phonemes.isNotEmpty) {
+          await _ttsService.speak('注意发音：$phonemes');
         }
-      } else {
-        // 完成
-        _showCompletionDialog();
       }
-    });
+      
+      await Future.delayed(const Duration(milliseconds: 300));
+    }
+    
+    // 再读完整句
+    await _ttsService.speak('现在连起来读：');
+    await _ttsService.speak(sentence);
+    await Future.delayed(const Duration(milliseconds: 300));
+    await _ttsService.speak('轮到你了！');
+    await _recordAndEvaluate(sentence);
   }
 
-  void _showCompletionDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFFFFF8E7),
-        title: const Center(
-          child: Text(
-            '🎉 太棒了！',
-            style: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFFE65100),
-            ),
-          ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              '你完成了这本绘本！',
-              style: TextStyle(fontSize: 20),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                5,
-                (index) => const Icon(
-                  Icons.star,
-                  color: Colors.amber,
-                  size: 40,
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              '获得 5 颗星星！',
-              style: TextStyle(
-                fontSize: 18,
-                color: Color(0xFF5D4037),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          Center(
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (context) => const HomeScreen()),
-                  (route) => false,
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange,
-                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-              ),
-              child: const Text(
-                '再读一本',
-                style: TextStyle(fontSize: 20, color: Colors.white),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  Future<void> _guidedReading() async {
+    setState(() => _currentPhase = TeachingPhase.guidedReading);
+    await _ttsService.speak('很好！现在我们读长一点的句子。');
     
-    _ttsService.speak('恭喜你完成了一本绘本！获得五颗星星！');
+    // 2句一起读
+    for (int i = 0; i < _sentences.length - 1; i += 2) {
+      final combined = '${_sentences[i]} ${_sentences[i + 1]}';
+      await _ttsService.speak(combined);
+      await Future.delayed(const Duration(milliseconds: 500));
+      await _ttsService.speak('轮到你了！');
+      await _recordAndEvaluate(combined);
+    }
+
+    // 阶段5：独立读
+    await _independentReading();
+  }
+
+  Future<void> _independentReading() async {
+    setState(() => _currentPhase = TeachingPhase.independentReading);
+    await _ttsService.speak('最后，你自己完整读一遍这本绘本。开始！');
+    
+    // 录音完整朗读
+    setState(() => _isListening = true);
+    final fullText = _sentences.join(' ');
+    final spokenText = await _speechService.listen(duration: const Duration(seconds: 10));
+    setState(() => _isListening = false);
+    
+    // 综合评估
+    final overallScore = _pronunciationService.evaluate(fullText, spokenText);
+    
+    // 计算星星
+    if (overallScore >= 90) {
+      _stars = 5;
+    } else if (overallScore >= 80) {
+      _stars = 4;
+    } else if (overallScore >= 70) {
+      _stars = 3;
+    } else if (overallScore >= 60) {
+      _stars = 2;
+    } else {
+      _stars = 1;
+    }
+
+    // 结束语
+    await _giveFinalFeedback(overallScore);
+  }
+
+  Future<void> _giveFinalFeedback(double score) async {
+    if (score >= 85) {
+      await _ttsService.speak('太棒了！你的发音非常好！获得$_stars颗星！明天我们继续学习下一本。');
+    } else if (score >= 70) {
+      await _ttsService.speak('很好！获得$_stars颗星！我们再练习一遍，巩固一下。');
+      // 可以选择重学
+      await _startTeaching();
+      return;
+    } else {
+      await _ttsService.speak('没关系，学习需要慢慢来。我们再学一遍，这次慢一点。');
+      await _startTeaching();
+      return;
+    }
+
+    // 显示完成页面
+    setState(() => _currentPhase = TeachingPhase.completed);
   }
 
   @override
   Widget build(BuildContext context) {
-    final steps = ['听', '说', '读'];
-    
     return Scaffold(
       backgroundColor: const Color(0xFFFFF8E7),
       body: SafeArea(
         child: Column(
           children: [
-            // 进度指示器
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(3, (index) {
-                  return Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 10),
-                    width: 60,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: index == _currentStep
-                          ? Colors.orange
-                          : index < _currentStep
-                              ? Colors.green
-                              : Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Center(
-                      child: Text(
-                        steps[index],
-                        style: TextStyle(
-                          color: index <= _currentStep ? Colors.white : Colors.grey,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-              ),
-            ),
-            
-            // 图片显示
+            // 绘本图片
             Expanded(
               flex: 2,
               child: Container(
-                margin: const EdgeInsets.all(20),
+                margin: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.1),
@@ -252,7 +276,7 @@ class _LearningScreenState extends State<LearningScreen> {
                   ],
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(16),
                   child: Image.file(
                     File(widget.imagePath),
                     fit: BoxFit.contain,
@@ -260,203 +284,175 @@ class _LearningScreenState extends State<LearningScreen> {
                 ),
               ),
             ),
-            
-            // 文字显示（可点击单词）
+
+            // 当前句子显示
             Expanded(
               flex: 1,
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20),
-                padding: const EdgeInsets.all(15),
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(15),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                child: SingleChildScrollView(
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    alignment: WrapAlignment.center,
-                    children: widget.recognizedText
-                        .split(' ')
-                        .where((w) => w.trim().isNotEmpty)
-                        .map((word) => GestureDetector(
-                          onTap: () => _speakWord(word),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              word,
-                              style: const TextStyle(
-                                fontSize: 24,
-                                color: Color(0xFF5D4037),
-                              ),
-                            ),
-                          ),
-                        ))
-                        .toList(),
-                  ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      _getPhaseText(),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (_currentSentenceIndex < _sentences.length)
+                      Text(
+                        _sentences[_currentSentenceIndex],
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF5D4037),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                  ],
                 ),
               ),
             ),
-            
-            // 操作区域
+
+            // 状态指示器
             Expanded(
               flex: 1,
-              child: _buildActionArea(),
+              child: Center(
+                child: _buildStatusIndicator(),
+              ),
             ),
+
+            // 完成按钮
+            if (_currentPhase == TeachingPhase.completed)
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(builder: (context) => const HomeScreen()),
+                      (route) => false,
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                  child: const Text(
+                    '完成学习',
+                    style: TextStyle(fontSize: 20),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildActionArea() {
-    if (_currentStep == 0) {
-      // 听：播放按钮
+  String _getPhaseText() {
+    switch (_currentPhase) {
+      case TeachingPhase.preReading:
+        return '准备开始';
+      case TeachingPhase.modelReading:
+        return '听老师读';
+      case TeachingPhase.choralReading:
+        return '跟我读 (${_currentSentenceIndex + 1}/${_sentences.length})';
+      case TeachingPhase.guidedReading:
+        return '尝试读';
+      case TeachingPhase.independentReading:
+        return '自己读';
+      case TeachingPhase.completed:
+        return '完成！获得 $_stars ⭐';
+    }
+  }
+
+  Widget _buildStatusIndicator() {
+    if (_isListening) {
       return Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          GestureDetector(
-            onTap: _speakText,
-            child: Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.orange,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.orange.withOpacity(0.4),
-                    blurRadius: 15,
-                    spreadRadius: 5,
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.volume_up,
-                size: 50,
-                color: Colors.white,
-              ),
+          Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.red.withOpacity(0.2),
+            ),
+            child: const Icon(
+              Icons.mic,
+              size: 50,
+              color: Colors.red,
             ),
           ),
-          const SizedBox(height: 15),
+          const SizedBox(height: 16),
           const Text(
-            '点击听发音',
-            style: TextStyle(fontSize: 18, color: Color(0xFF8D6E63)),
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: _nextStep,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-            ),
-            child: const Text(
-              '下一步：跟我读',
-              style: TextStyle(fontSize: 18, color: Colors.white),
+            '正在听...',
+            style: TextStyle(
+              fontSize: 20,
+              color: Color(0xFF5D4037),
             ),
           ),
-        ],
-      );
-    } else if (_currentStep == 1 || _currentStep == 2) {
-      // 说/读：录音按钮
-      return Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (_showResult) ...[
-            // 显示结果
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  _score >= 80 ? Icons.check_circle : Icons.refresh,
-                  color: _score >= 80 ? Colors.green : Colors.orange,
-                  size: 40,
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  '$_score分',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    color: _score >= 80 ? Colors.green : Colors.orange,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            if (_score >= 60)
-              ElevatedButton(
-                onPressed: _nextStep,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                ),
-                child: Text(
-                  _currentStep == 1 ? '下一步：自己读' : '完成！',
-                  style: const TextStyle(fontSize: 18, color: Colors.white),
-                ),
-              )
-            else
-              ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    _showResult = false;
-                    _spokenText = '';
-                  });
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-                ),
-                child: const Text(
-                  '再试一次',
-                  style: TextStyle(fontSize: 18, color: Colors.white),
-                ),
-              ),
-          ] else ...[
-            // 录音按钮
-            GestureDetector(
-              onTapDown: (_) => _startListening(),
-              onTapUp: (_) {},
-              child: Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _isListening ? Colors.red : Colors.orange,
-                  boxShadow: [
-                    BoxShadow(
-                      color: (_isListening ? Colors.red : Colors.orange)
-                          .withOpacity(0.4),
-                      blurRadius: 20,
-                      spreadRadius: 5,
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  _isListening ? Icons.mic : Icons.mic_none,
-                  size: 60,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-            const SizedBox(height: 15),
-            Text(
-              _isListening ? '正在听...' : '按住说话',
-              style: const TextStyle(fontSize: 18, color: Color(0xFF8D6E63)),
-            ),
-          ],
         ],
       );
     }
-    
-    return const SizedBox.shrink();
+
+    if (_isProcessing) {
+      return const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(color: Colors.orange),
+          SizedBox(height: 16),
+          Text(
+            '思考中...',
+            style: TextStyle(
+              fontSize: 20,
+              color: Color(0xFF5D4037),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Container(
+      width: 80,
+      height: 80,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.orange.withOpacity(0.2),
+      ),
+      child: const Icon(
+        Icons.volume_up,
+        size: 40,
+        color: Colors.orange,
+      ),
+    );
   }
+
+  @override
+  void dispose() {
+    _ttsService.dispose();
+    _speechService.dispose();
+    super.dispose();
+  }
+}
+
+enum TeachingPhase {
+  preReading,      // 预读
+  modelReading,    // 示范读
+  choralReading,   // 逐句跟读
+  guidedReading,   // 尝试读
+  independentReading, // 独立读
+  completed,       // 完成
 }

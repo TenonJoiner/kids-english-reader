@@ -1,11 +1,14 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../services/ocr_service.dart';
 import '../services/tts_service.dart';
+import '../services/speech_service.dart';
 import 'learning_screen.dart';
 
+/// 相机页面 - 拍照识别绘本
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
 
@@ -16,26 +19,15 @@ class CameraScreen extends StatefulWidget {
 class _CameraScreenState extends State<CameraScreen> {
   final ImagePicker _picker = ImagePicker();
   final OCRService _ocrService = OCRService();
-  final TTSService _ttsService = TTSService();
   bool _isProcessing = false;
-  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    _initServices();
+    _checkPermissionAndOpenCamera();
   }
 
-  Future<void> _initServices() async {
-    await _ocrService.init();
-    await _ttsService.init();
-    setState(() => _isInitialized = true);
-    
-    // 检查权限并自动打开相机
-    _checkPermission();
-  }
-
-  Future<void> _checkPermission() async {
+  Future<void> _checkPermissionAndOpenCamera() async {
     final status = await Permission.camera.request();
     if (status.isGranted) {
       _takePhoto();
@@ -43,13 +35,6 @@ class _CameraScreenState extends State<CameraScreen> {
   }
 
   Future<void> _takePhoto() async {
-    if (!_isInitialized) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('服务初始化中，请稍候...')),
-      );
-      return;
-    }
-
     try {
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera,
@@ -60,45 +45,35 @@ class _CameraScreenState extends State<CameraScreen> {
       if (photo != null) {
         setState(() => _isProcessing = true);
         
-        // 识别文字
+        // OCR识别文字
         final text = await _ocrService.recognizeText(photo.path);
         
         setState(() => _isProcessing = false);
         
         if (text.isNotEmpty) {
-          // 进入学习界面
+          // 进入AI老师教学页面
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
               builder: (context) => LearningScreen(
                 imagePath: photo.path,
-                recognizedText: text,
+                bookText: text,
               ),
             ),
           );
         } else {
-          _ttsService.speak('没有识别到文字，请再试一次');
-          Navigator.pop(context);
+          _showError('没有识别到文字，请再试一次');
         }
       } else {
         Navigator.pop(context);
       }
     } catch (e) {
       setState(() => _isProcessing = false);
-      print('拍照错误: $e');
-      _ttsService.speak('拍照出错了，请重试');
-      Navigator.pop(context);
+      _showError('拍照出错了，请重试');
     }
   }
 
   Future<void> _pickFromGallery() async {
-    if (!_isInitialized) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('服务初始化中，请稍候...')),
-      );
-      return;
-    }
-
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
@@ -118,19 +93,25 @@ class _CameraScreenState extends State<CameraScreen> {
             MaterialPageRoute(
               builder: (context) => LearningScreen(
                 imagePath: image.path,
-                recognizedText: text,
+                bookText: text,
               ),
             ),
           );
         } else {
-          _ttsService.speak('没有识别到文字，请换一张图片');
+          _showError('没有识别到文字，请换一张图片');
         }
       }
     } catch (e) {
       setState(() => _isProcessing = false);
-      print('相册错误: $e');
-      _ttsService.speak('出错了，请重试');
+      _showError('出错了，请重试');
     }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+    Navigator.pop(context);
   }
 
   @override
@@ -149,7 +130,7 @@ class _CameraScreenState extends State<CameraScreen> {
                     ),
                     const SizedBox(height: 30),
                     const Text(
-                      '正在识别文字...',
+                      '正在识别绘本...',
                       style: TextStyle(
                         fontSize: 24,
                         color: Color(0xFF5D4037),
@@ -161,7 +142,7 @@ class _CameraScreenState extends State<CameraScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Text(
-                      '选择图片',
+                      '选择绘本图片',
                       style: TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
@@ -169,21 +150,18 @@ class _CameraScreenState extends State<CameraScreen> {
                       ),
                     ),
                     const SizedBox(height: 60),
-                    // 拍照按钮
                     _buildButton(
                       icon: Icons.camera_alt,
                       label: '拍照',
                       onTap: _takePhoto,
                     ),
                     const SizedBox(height: 30),
-                    // 相册按钮
                     _buildButton(
                       icon: Icons.photo_library,
                       label: '从相册选择',
                       onTap: _pickFromGallery,
                     ),
                     const SizedBox(height: 60),
-                    // 返回按钮
                     TextButton(
                       onPressed: () => Navigator.pop(context),
                       child: const Text(
