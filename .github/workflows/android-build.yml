@@ -23,24 +23,22 @@ jobs:
     
     - name: Recreate Android project
       run: |
-        # 备份lib和assets
-        mv lib lib_backup
-        mv assets assets_backup 2>/dev/null || true
-        mv pubspec.yaml pubspec_backup.yaml
+        # 备份到/tmp
+        cp -r lib /tmp/lib_backup
+        cp -r assets /tmp/assets_backup 2>/dev/null || true
+        cp pubspec.yaml /tmp/pubspec_backup.yaml
         
         # 删除所有文件（除了.git）
         find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
         
-        # 创建新项目（非交互式）
+        # 创建新项目
         flutter create --no-pub --org com.example --project-name kids_english_reader .
         
         # 恢复代码
         rm -rf lib
-        mv lib_backup lib
-        mv assets_backup assets 2>/dev/null || true
-        
-        # 恢复pubspec.yaml
-        cat pubspec_backup.yaml > pubspec.yaml
+        cp -r /tmp/lib_backup lib
+        cp -r /tmp/assets_backup assets 2>/dev/null || true
+        cp /tmp/pubspec_backup.yaml pubspec.yaml
         
         # 添加Android配置
         echo "org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m" >> android/gradle.properties
