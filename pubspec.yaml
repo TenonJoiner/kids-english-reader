@@ -18,7 +18,7 @@ dependencies:
   # 图片选择
   image_picker: ^1.0.7
   
-  # HTTP请求 - 降级以兼容Dart 3.1
+  # HTTP请求
   http: ^1.1.0
   
   # 加密（用于API签名）
@@ -27,11 +27,11 @@ dependencies:
   # 本地存储
   shared_preferences: ^2.2.2
   
-  # 权限管理 - 降级以兼容Flutter 3.13
+  # 权限管理
   permission_handler: ^10.4.5
   
-  # 动画 - 降级以兼容
-  lottie: ^2.7.0
+  # 动画 - 降级以兼容Dart 3.0
+  lottie: ^2.6.0
   
   # 路径
   path_provider: ^2.1.2
