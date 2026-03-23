@@ -8,10 +8,11 @@ import 'settings_service.dart';
 
 /// 语音识别服务 - 使用阿里云百炼MAAS
 class SpeechService {
-  final Record _audioRecorder = Record();
+  final AudioRecorder _audioRecorder = AudioRecorder();
   final SettingsService _settingsService = SettingsService();
   bool _initialized = false;
   bool _isRecording = false;
+  String? _currentRecordingPath;
 
   /// 初始化语音识别服务
   Future<void> init() async {
@@ -37,13 +38,16 @@ class SpeechService {
     try {
       final dir = await getTemporaryDirectory();
       final path = '${dir.path}/recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      _currentRecordingPath = path;
       
-      await _audioRecorder.start(
-        path: path,
+      // 配置录音
+      const config = RecordConfig(
         encoder: AudioEncoder.aacLc,
         bitRate: 128000,
-        samplingRate: 16000,
+        sampleRate: 16000,
       );
+      
+      await _audioRecorder.start(config, path: path);
       
       _isRecording = true;
       print('开始录音: $path');
@@ -60,11 +64,11 @@ class SpeechService {
       final path = await _audioRecorder.stop();
       _isRecording = false;
       print('停止录音: $path');
-      return path;
+      return path ?? _currentRecordingPath;
     } catch (e) {
       print('停止录音错误: $e');
       _isRecording = false;
-      return null;
+      return _currentRecordingPath;
     }
   }
 
@@ -157,6 +161,6 @@ class SpeechService {
     if (_isRecording) {
       await stopRecording();
     }
-    await _audioRecorder.dispose();
+    // AudioRecorder不需要dispose
   }
 }
