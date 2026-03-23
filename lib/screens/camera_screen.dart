@@ -18,22 +18,38 @@ class _CameraScreenState extends State<CameraScreen> {
   final OCRService _ocrService = OCRService();
   final TTSService _ttsService = TTSService();
   bool _isProcessing = false;
+  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
+    _initServices();
+  }
+
+  Future<void> _initServices() async {
+    await _ocrService.init();
+    await _ttsService.init();
+    setState(() => _isInitialized = true);
+    
+    // 检查权限并自动打开相机
     _checkPermission();
   }
 
   Future<void> _checkPermission() async {
     final status = await Permission.camera.request();
     if (status.isGranted) {
-      // 自动打开相机
       _takePhoto();
     }
   }
 
   Future<void> _takePhoto() async {
+    if (!_isInitialized) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('服务初始化中，请稍候...')),
+      );
+      return;
+    }
+
     try {
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera,
@@ -69,12 +85,20 @@ class _CameraScreenState extends State<CameraScreen> {
       }
     } catch (e) {
       setState(() => _isProcessing = false);
+      print('拍照错误: $e');
       _ttsService.speak('拍照出错了，请重试');
       Navigator.pop(context);
     }
   }
 
   Future<void> _pickFromGallery() async {
+    if (!_isInitialized) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('服务初始化中，请稍候...')),
+      );
+      return;
+    }
+
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.gallery,
@@ -104,6 +128,7 @@ class _CameraScreenState extends State<CameraScreen> {
       }
     } catch (e) {
       setState(() => _isProcessing = false);
+      print('相册错误: $e');
       _ttsService.speak('出错了，请重试');
     }
   }

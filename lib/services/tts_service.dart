@@ -9,14 +9,20 @@ class TTSService {
   static const String _endpoint = 'https://dashscope.aliyuncs.com/api/v1/services/audio/tts/general';
   
   final SettingsService _settingsService = SettingsService();
+  bool _initialized = false;
 
   /// 初始化TTS服务
   Future<void> init() async {
-    await _settingsService.init();
+    if (!_initialized) {
+      await _settingsService.init();
+      _initialized = true;
+    }
   }
 
   /// 朗读文本
   Future<void> speak(String text) async {
+    await init(); // 确保已初始化
+    
     if (!_settingsService.isConfigured) {
       print('TTS未配置');
       return;
@@ -28,6 +34,8 @@ class TTSService {
       if (text.length > 100) {
         text = text.substring(0, 100);
       }
+
+      print('TTS朗读: $text');
 
       final response = await http.post(
         Uri.parse(_endpoint),
@@ -60,7 +68,7 @@ class TTSService {
           // 实际应该播放音频
         }
       } else {
-        print('TTS请求失败: ${response.body}');
+        print('TTS请求失败: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       print('TTS Error: $e');
